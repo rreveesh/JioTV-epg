@@ -2,9 +2,9 @@ import requests
 import json
 import datetime
 import os
-
-prevEpgDayCount = 7
+prevEpgDayCount = 1
 nextEpgDayCount = 2
+
 
 channelList = []
 
@@ -36,20 +36,20 @@ def writeEpgChannel(id, name, iconId, fp):
     if id is None or name is None:
         return
 
-    name = name.replace("&", "&amp;")
+    name = name.replace("&", "and;")
     name = name.replace("<", "&lt;")
     name = name.replace(">", "&gt;")
     name = name.replace("'", "&apos;")
     name = name.replace('"', "&quot;")
-    fp.write("\t<channel id=\""+str(id)+"\">\n")
-    fp.write("\t\t<display-name>"+str(name)+"</display-name>\n")
+    fp.write("\t<channel id=\""+str(name)+"\">\n")
+    fp.write("\t\t<display-name lang=\"eng\">"+str(name)+"</display-name>\n")
     fp.write("\t\t<icon src=\"https://jiotv.catchup.cdn.jio.com/dare_images/images/" +
              str(iconId)+"\"></icon>\n")
     fp.write("\t</channel>\n")
 
 
-def writeEpgProgram(channelId, epg, fp):
-    if channelId is None or epg is None:
+def writeEpgProgram(id,name, epg, fp):
+    if name is None or epg is None:
         return
     startTime = datetime.datetime.fromtimestamp(int(epg["startEpoch"]/1000))
     progStart = startTime.strftime("%Y%m%d%H%M%S +0000")
@@ -57,15 +57,18 @@ def writeEpgProgram(channelId, epg, fp):
     endTime = datetime.datetime.fromtimestamp(int(epg["endEpoch"]/1000))
     progEnd = endTime.strftime("%Y%m%d%H%M%S +0000")
 
+    name = name.replace("&", "and")        
     title = epg["showname"]
-    title = title.replace("&", "&amp;")
+    title = title.replace("&", "and;")
     title = title.replace("<", "&lt;")
     title = title.replace(">", "&gt;")
     title = title.replace("'", "&apos;")
     title = title.replace('"', "&quot;")
+    
+  
 
     description = epg["episode_desc"] or epg["description"]
-    description = description.replace("&", "&amp;")
+    description = description.replace("&", "and;")
     description = description.replace("<", "&lt;")
     description = description.replace(">", "&gt;")
     description = description.replace("'", "&apos;")
@@ -78,23 +81,9 @@ def writeEpgProgram(channelId, epg, fp):
 
     try:
         fp.write("\t<programme start=\""+str(progStart)+"\" stop=\"" +
-                 str(progEnd)+"\" channel=\""+str(channelId) + "\">\n")
-        fp.write("\t\t<title lang=\"en\">" + title + "</title>\n")
-        fp.write("\t\t<desc lang=\"en\">" + description + "</desc>\n")
-        if(director or len(actors)):
-            fp.write("\t\t<credits>\n")
-            if(director):
-                fp.write("\t\t\t<director>" + director + "</director>\n")
-            if(len(actors)):
-                for actor in actors:
-                    fp.write("\t\t\t<actor>" + actor + "</actor>\n")
-            fp.write("\t\t</credits>\n")
-        if(category):
-            fp.write("\t\t<category lang=\"en\">" + category + "</category>\n")
-        if(episodeNum):
-            fp.write("\t\t<episode-num system=\"onscreen\">" + str(episodeNum) + "</episode-num>\n")
-        fp.write("\t\t<icon src=\"https://jiotv.catchup.cdn.jio.com/dare_images/shows/" +
-                 str(epg["episodePoster"])+"\"></icon>\n")
+                 str(progEnd)+"\" channel=\""+str(name) + "\">\n")
+        fp.write("\t\t<title lang=\"eng\">" + title + "</title>\n")
+        fp.write("\t\t<desc lang=\"eng\">" + description + "</desc>\n")
         fp.write("\t</programme>\n")
     except UnicodeEncodeError:
         print("it was not a ascii-encoded unicode string")
@@ -106,12 +95,14 @@ def grabEpgAllChannel(day):
     programFile = open("program"+str(day)+".xml", "a", encoding='utf-8')
     progress = 0
     for channel in channelList:
-        print("Getting EPG for "+str(channel["channel_id"]) +
+        print("Getting EPG for Service ID-"+str(channel["channel_id"]) +
               " "+channel["channel_name"]+" day "+str(day))
         epgData = getEpg(channel["channel_id"], day, 6)
         for epg in epgData:
-            writeEpgProgram(channel["channel_id"], epg, programFile)
+            writeEpgProgram(channel["channel_id"],channel["channel_name"], epg, programFile)
         progress += 1
+        #if progress == 5:
+        #    break
         print("progress "+str(progress)+"/"+str(len(channelList)))
     programFile.close()
 
@@ -135,12 +126,12 @@ def rotateEpg():
 def mergeEpgData():
     channelsFile = open("channels.xml", "r", encoding='utf-8')
     epgFile = open("epg.xml", "a", encoding='utf-8')
-
+    
     epgFile.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
-    epgFile.write("<!DOCTYPE tv SYSTEM \"xmltv.dtd\">\n")
-    epgFile.write(
-        "<tv generator-info-name=\"Arnab Ghosh\" generator-info-url=\"https://github.com/arnab8820\">\n")
+    epgFile.write("<tv>\n")
+    #towrite channel list once
     epgFile.write(channelsFile.read())
+        
     for day in range((prevEpgDayCount * -1), nextEpgDayCount):
         if (os.path.isfile('./program' + str(day) + '.xml')):
             programsFile = open('./program' + str(day) +
@@ -149,16 +140,12 @@ def mergeEpgData():
             programsFile.close()
 
     epgFile.write("</tv>\n")
-    channelsFile.close()
     epgFile.close()
 
     # create single day epg
-    channelsFile = open("channels.xml", "r", encoding='utf-8')
     epgFile1d = open("epg1d.xml", "a", encoding='utf-8')
     epgFile1d.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
-    epgFile1d.write("<!DOCTYPE tv SYSTEM \"xmltv.dtd\">\n")
-    epgFile1d.write(
-        "<tv generator-info-name=\"Arnab Ghosh\" generator-info-url=\"https://github.com/arnab8820\">\n")
+    epgFile1d.write("<tv>\n")
     epgFile1d.write(channelsFile.read())
     channelsFile.close()
     if (os.path.isfile('./program0.xml')):
@@ -169,8 +156,16 @@ def mergeEpgData():
     epgFile1d.close()
 
 # Process starts here
+
+channelWrFlag = 0
 channelList = getChannels()
 progress = 0
+if (os.path.isfile('./channels.xml')):
+    os.remove("./channels.xml")
+if (os.path.isfile('./epg.xml')):
+    os.remove("epg.xml")
+if (os.path.isfile('./epg1d.xml')):
+    os.remove("epg1d.xml")
 channelFile = open("channels.xml", "a", encoding='utf-8')
 for channel in channelList:
     writeEpgChannel(channel["channel_id"],

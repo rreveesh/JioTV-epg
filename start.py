@@ -10,17 +10,19 @@ channelList = []
 
 
 def getChannels():
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
     reqUrl = "https://jiotv.data.cdn.jio.com/apis/v1.4/getMobileChannelList/get/?os=android&devicetype=phone"
-    response = requests.get(reqUrl)
+    response = requests.get(reqUrl,headers=headers)
     apiData = json.loads(response.text)
     return apiData["result"]
 
 
 def getEpg(channelId, offset, langId):
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
     try:
         reqUrl = "https://jiotv.data.cdn.jio.com/apis/v1.3/getepg/get?channel_id=" + \
             str(channelId)+"&offset="+str(offset)+"&langId="+str(langId)
-        response = requests.get(reqUrl)
+        response = requests.get(reqUrl,headers=headers)
         print("OK: " + str(response.ok) + " status: " + str(response.status_code))
         if (response.status_code == 200):
             apiData = json.loads(response.text or "{}")
@@ -177,4 +179,3 @@ for day in range((prevEpgDayCount*-1), nextEpgDayCount):
         grabEpgAllChannel(day)
 mergeEpgData()
 print("Action complete")
-
